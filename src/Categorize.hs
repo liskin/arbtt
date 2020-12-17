@@ -81,6 +81,8 @@ data TimeVar = TvTime | TvSampleAge
 
 data NumVar = NvIdle
 
+data BoolVar = BvScreenSaver
+
 runParserStack :: Stream s (ReaderT r Identity) t
                => r
                -> ParsecT s () (ReaderT r Identity) a
@@ -141,6 +143,7 @@ lang = makeTokenParser LanguageDef
                                    , "date"
                                    , "now"
                                    , "desktop"
+                                   , "screensaver"
                                    ]
                 , caseSensitive  = True
                 }
@@ -412,6 +415,7 @@ parseCondPrim = choice
                       , reserved lang "date" >> return (CondDate (getDateVar DvDate))
                       , reserved lang "now" >> return (CondDate (getDateVar DvNow))
                       , reserved lang "desktop" >> return (CondString (getVar "desktop"))
+                      , reserved lang "screensaver" >> return (CondCond (checkBoolVar BvScreenSaver))
                       , do varname <- identifier lang
                            inEnvironment <- (lift (asks (Map.lookup varname . snd)))
                            case inEnvironment of
@@ -550,6 +554,9 @@ getTimeVar TvSampleAge ctx = Just $ cCurrentTime ctx `diffUTCTime` tlTime (cNow 
 getDateVar :: DateVar -> CtxFun UTCTime
 getDateVar DvDate = Just . tlTime . cNow
 getDateVar DvNow = Just . cCurrentTime
+
+checkBoolVar :: BoolVar -> Cond
+checkBoolVar BvScreenSaver ctx = guard (cScreenSaver (tlData (cNow ctx))) >> return []
 
 findActive :: [(Bool, t, t1)] -> Maybe (Bool, t, t1)
 findActive = find (\(a,_,_) -> a)
